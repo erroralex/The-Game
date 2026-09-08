@@ -11,15 +11,18 @@
     <h1>Duke&apos;s Debug Dash</h1>
     <div class="stage">
       <canvas id="game" width="400" height="600" aria-label="Duke's Debug Dash game canvas"></canvas>
+      <div id="narrator" class="narrator">
+        <canvas id="narrator-canvas" class="narrator-canvas" width="280" height="472" aria-hidden="true"></canvas>
+        <div class="speech-bubble">
+          <p id="narrator-text">
+            Duke's shipping code again. Dodge the stack traces, dash to grab the
+            bugs, and see how high you can score!
+          </p>
+        </div>
+      </div>
       <button id="mute-button" class="mute-button" type="button" aria-label="Toggle music" title="Toggle music (M)">🔊</button>
       <div id="overlay" class="overlay">
         <div class="panel">
-          <p id="overlay-title">Duke&apos;s Debug Dash</p>
-          <p id="overlay-message">
-            Dodge the stack traces. Collect the bugs.<br />
-            <kbd>Space</kbd> / tap to flap. <kbd>Shift</kbd> / second tap to dash
-            toward the nearest bug.
-          </p>
           <button id="start-button" type="button">Start</button>
         </div>
       </div>

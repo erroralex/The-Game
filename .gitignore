@@ -5,7 +5,8 @@ node_modules/
 /drop-in-brain-main/
 
 ### Reference assets not wired into the game (Duke is drawn as vectors) ###
-/assets/
+/assets/*
+!/assets/Gemini_Generated_Image_potvyfpotvyfpotv.png
 
 ### Claude Code ###
 .claude/skills/

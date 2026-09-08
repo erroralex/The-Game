@@ -72,10 +72,28 @@ HTML5 Canvas + vanilla JS, no build step, no backend.
     dependencies. Starts on game start/retry, halts gracefully on game over,
     and includes an in-game mute toggle button plus keyboard shortcut (`M`)
     persisted in `localStorage`.
+  - **Dash reach:** doubled `DASH_LUNGE` (55 -> 110 in `entities.js`); the
+    homing dash felt too short-ranged to reliably reach a bug.
+  - **Professor narrator:** added a large full-body character overlay drawn
+    directly on the game canvas, presenting the game on the start screen and
+    reporting score/high score on game over via a speech-bubble caption
+    (`narrator.js`, wired into `game.js`/`index.html`/`styles.css`). Source
+    art is `assets/Gemini_Generated_Image_potvyfpotvyfpotv.png` (goatee
+    baked into the generated art itself); its white background was removed
+    with a flood-fill run once via a scratch PowerShell/C# script (seeded
+    from the image borders so interior whites like teeth/shirt stayed
+    opaque), not part of the build. Un-ignored specifically in `.gitignore`
+    (same pattern as the earlier `professor-talking.png`, which is now
+    unused but left on disk). Replaced the old procedurally-drawn stubble
+    goatee approach entirely (that code is gone from `narrator.js`). Also
+    removed the redundant title/instructions text from the white start/
+    game-over overlay panel (now just the Start/Retry button) since the
+    speech bubble carries that messaging.
   - Verified in-browser via claude-in-chrome: background/obstacle/bug
     rendering, dash-through-obstacle-into-bug homing, collision/game-over
-    flow, and high-score persistence across a page reload all confirmed
-    working, no console errors. Note: the automated browser tab throttles
+    flow, high-score persistence across a page reload, and the narrator
+    overlay on both start and game-over screens all confirmed working, no
+    console errors. Note: the automated browser tab throttles
     `requestAnimationFrame` (background-tab behavior), which made live
     "play through a full session" timing checks slow; a manual playtest
     with a focused tab is still worth doing for difficulty/feel.
@@ -83,8 +101,7 @@ HTML5 Canvas + vanilla JS, no build step, no backend.
 ## Next Steps
 - Manual playtest with audio unmuted to verify music volume balance against
   SFX during gameplay.
-- Confirm difficulty feel now that obstacle spacing and bug placement changed
-  (gravity, flap strength, gap/speed, spawn intervals).
-- Consider a title/logo treatment for polish.
+- Confirm difficulty feel now that obstacle spacing, bug placement, and dash
+  reach changed (gravity, flap strength, gap/speed, spawn intervals).
 - No automated tests exist yet (manual/browser verification only, per the
   Project header); add some if the game grows past a single demo session.

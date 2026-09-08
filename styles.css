@@ -41,6 +41,42 @@ h1 {
   text-align: center;
 }
 
+.narrator {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.narrator[hidden] {
+  display: none;
+}
+
+.narrator-canvas {
+  height: 96%;
+  width: auto;
+  image-rendering: pixelated;
+}
+
+.speech-bubble {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+}
+
+.speech-bubble p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
 .stage {
   position: relative;
   width: min(400px, 92vw);
@@ -78,20 +114,6 @@ canvas {
   max-width: 85%;
 }
 
-.panel p:first-child {
-  margin-top: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
-}
-
-.panel kbd {
-  background: #eee;
-  border: 1px solid #ccc;
-  border-bottom-width: 2px;
-  border-radius: 4px;
-  padding: 0.05rem 0.35rem;
-  font-family: inherit;
-}
 
 button {
   margin-top: 0.75rem;

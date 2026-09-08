@@ -2,14 +2,17 @@ import { Duke, Obstacle, Bug } from "./entities.js";
 import { createCodeLines, drawBackground, drawObstacle, drawBug, drawDuke, drawHud } from "./render.js";
 import { playFlap, playDash, playCollect, playHit, playGameOver } from "./sound.js";
 import { startMusic, stopMusic, toggleMusicMute, isMusicMuted } from "./music.js";
+import { drawNarrator } from "./narrator.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const overlay = document.getElementById("overlay");
-const overlayTitle = document.getElementById("overlay-title");
-const overlayMessage = document.getElementById("overlay-message");
 const startButton = document.getElementById("start-button");
 const muteButton = document.getElementById("mute-button");
+const narrator = document.getElementById("narrator");
+const narratorCanvas = document.getElementById("narrator-canvas");
+const narratorCtx = narratorCanvas.getContext("2d");
+const narratorText = document.getElementById("narrator-text");
 
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
@@ -152,10 +155,10 @@ function endGame() {
     highScore = score;
     saveHighScore(highScore);
   }
-  overlayTitle.textContent = "Debugged!";
-  overlayMessage.innerHTML = `Score: <strong>${score}</strong> bug${score === 1 ? "" : "s"} squashed.<br />Best: <strong>${highScore}</strong>${isNewHighScore ? " (new high score!)" : ""}<br />Press Space or tap to try again.`;
   startButton.textContent = "Retry";
   overlay.hidden = false;
+  narratorText.textContent = `Nice debugging! Score: ${score} bug${score === 1 ? "" : "s"}. Best: ${highScore}.${isNewHighScore ? " New high score!" : ""} Press Space or tap Retry to go again.`;
+  narrator.hidden = false;
   playHit();
   playGameOver();
 }
@@ -164,6 +167,7 @@ function startGame() {
   resetGame();
   state = "playing";
   overlay.hidden = true;
+  narrator.hidden = true;
   startMusic();
 }
 
@@ -277,6 +281,7 @@ function draw() {
   for (const b of bugs) drawBug(ctx, b);
   if (state !== "start") drawDuke(ctx, duke, animTime);
   if (state === "playing") drawHud(ctx, WIDTH, score, duke);
+  if (state !== "playing") drawNarrator(narratorCtx, narratorCanvas.width, narratorCanvas.height);
 }
 
 function loop(timestamp) {
