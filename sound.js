@@ -1,6 +1,6 @@
 let audioCtx = null;
 
-function getContext() {
+export function getContext() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }

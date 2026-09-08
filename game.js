@@ -1,6 +1,7 @@
 import { Duke, Obstacle, Bug } from "./entities.js";
 import { createCodeLines, drawBackground, drawObstacle, drawBug, drawDuke, drawHud } from "./render.js";
 import { playFlap, playDash, playCollect, playHit, playGameOver } from "./sound.js";
+import { startMusic, stopMusic, toggleMusicMute, isMusicMuted } from "./music.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -8,6 +9,7 @@ const overlay = document.getElementById("overlay");
 const overlayTitle = document.getElementById("overlay-title");
 const overlayMessage = document.getElementById("overlay-message");
 const startButton = document.getElementById("start-button");
+const muteButton = document.getElementById("mute-button");
 
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
@@ -144,6 +146,7 @@ function saveHighScore(value) {
 
 function endGame() {
   state = "gameover";
+  stopMusic();
   const isNewHighScore = score > highScore;
   if (isNewHighScore) {
     highScore = score;
@@ -161,6 +164,7 @@ function startGame() {
   resetGame();
   state = "playing";
   overlay.hidden = true;
+  startMusic();
 }
 
 function handleFlap() {
@@ -183,6 +187,14 @@ function handleDash() {
   }
 }
 
+function updateMuteButton() {
+  const muted = isMusicMuted();
+  muteButton.textContent = muted ? "🔇" : "🔊";
+  muteButton.classList.toggle("muted", muted);
+  muteButton.setAttribute("aria-label", muted ? "Unmute music" : "Mute music");
+  muteButton.setAttribute("title", muted ? "Unmute music (M)" : "Mute music (M)");
+}
+
 window.addEventListener("keydown", (e) => {
   if (e.code === "Space") {
     e.preventDefault();
@@ -190,7 +202,16 @@ window.addEventListener("keydown", (e) => {
   } else if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
     e.preventDefault();
     handleDash();
+  } else if (e.code === "KeyM") {
+    e.preventDefault();
+    toggleMusicMute();
+    updateMuteButton();
   }
+});
+
+muteButton.addEventListener("click", () => {
+  toggleMusicMute();
+  updateMuteButton();
 });
 
 canvas.addEventListener("pointerdown", (e) => {
@@ -272,4 +293,5 @@ function loop(timestamp) {
 }
 
 resetGame();
+updateMuteButton();
 requestAnimationFrame(loop);

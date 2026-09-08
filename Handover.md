@@ -64,6 +64,14 @@ HTML5 Canvas + vanilla JS, no build step, no backend.
   - **High score:** persisted to `localStorage`
     (`dukesDebugDash.highScore`), shown on the game-over overlay as
     "Best: N" with a "(new high score!)" flag when beaten.
+  - **Retro Soundtrack:** added `music.js` synthesizing a high-energy 16-bit
+    chiptune soundtrack inspired by Mega Man X (150 BPM in E minor, driving
+    16th-note synth bassline, pitch-drop kick, bandpass-filtered noise snare,
+    hi-hats, heroic lead melody, and rhythmic arpeggio chords). Uses a Web
+    Audio lookahead scheduler for sample-accurate timing with zero external
+    dependencies. Starts on game start/retry, halts gracefully on game over,
+    and includes an in-game mute toggle button plus keyboard shortcut (`M`)
+    persisted in `localStorage`.
   - Verified in-browser via claude-in-chrome: background/obstacle/bug
     rendering, dash-through-obstacle-into-bug homing, collision/game-over
     flow, and high-score persistence across a page reload all confirmed
@@ -73,10 +81,10 @@ HTML5 Canvas + vanilla JS, no build step, no backend.
     with a focused tab is still worth doing for difficulty/feel.
 
 ## Next Steps
-- Manual playtest with a normally focused browser tab to confirm difficulty
-  feel now that obstacle spacing and bug placement changed (gravity, flap
-  strength, gap/speed, spawn intervals are still first-pass-tuned values
-  otherwise).
+- Manual playtest with audio unmuted to verify music volume balance against
+  SFX during gameplay.
+- Confirm difficulty feel now that obstacle spacing and bug placement changed
+  (gravity, flap strength, gap/speed, spawn intervals).
 - Consider a title/logo treatment for polish.
 - No automated tests exist yet (manual/browser verification only, per the
   Project header); add some if the game grows past a single demo session.

@@ -115,6 +115,32 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+.mute-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  margin: 0;
+  padding: 0.35rem 0.55rem;
+  font-size: 1rem;
+  line-height: 1;
+  background: rgba(20, 26, 38, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: var(--paper);
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.mute-button:hover {
+  background: rgba(30, 40, 58, 0.95);
+}
+
+.mute-button.muted {
+  opacity: 0.65;
+}
+
 .hint {
   margin: 0;
   font-size: 0.85rem;
