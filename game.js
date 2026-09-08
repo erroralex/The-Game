@@ -16,18 +16,22 @@ const GROUND_HEIGHT = 40;
 const OBSTACLE_WIDTH = 60;
 const OBSTACLE_GAP = 160;
 const OBSTACLE_SPEED = 170;
-const OBSTACLE_INTERVAL = 1.5;
+const OBSTACLE_INTERVAL = 1.8;
 
 const BUG_SPEED = 170;
 const BUG_INTERVAL = 1.9;
-const BUG_OBSTACLE_MARGIN = 30;
-const BUG_SPAWN_ATTEMPTS = 20;
+const BUG_MARGIN = 30;
+const BUG_RADIUS = 10;
+const BUG_OBSTACLE_CLEARANCE = 36;
+
+const HIGH_SCORE_KEY = "dukesDebugDash.highScore";
 
 const codeLines = createCodeLines(WIDTH, HEIGHT);
 
 let state = "start"; // "start" | "playing" | "gameover"
 let duke, obstacles, bugs, score, obstacleTimer, bugTimer, lastTime;
 let animTime = 0;
+let highScore = loadHighScore();
 
 function resetGame() {
   duke = new Duke(90, HEIGHT / 2);
@@ -44,31 +48,67 @@ function spawnObstacle() {
   obstacles.push(new Obstacle(WIDTH, OBSTACLE_WIDTH, gapY, OBSTACLE_GAP, OBSTACLE_SPEED, HEIGHT - GROUND_HEIGHT));
 }
 
-function isClearOfObstacles(x, y, radius) {
+// Bug and obstacle move at the same speed, so their horizontal offset never
+// changes after spawn: checking clearance once, at spawn time, holds forever.
+function forbiddenBandsAt(x, threshold) {
+  const bands = [];
   for (const o of obstacles) {
-    const rects = [
-      { x: o.x, y: 0, w: o.width, h: o.gapY },
-      { x: o.x, y: o.gapY + o.gapHeight, w: o.width, h: HEIGHT - GROUND_HEIGHT - (o.gapY + o.gapHeight) },
-    ];
-    for (const r of rects) {
-      const closestX = Math.max(r.x, Math.min(x, r.x + r.w));
-      const closestY = Math.max(r.y, Math.min(y, r.y + r.h));
-      const dx = x - closestX;
-      const dy = y - closestY;
-      if (Math.hypot(dx, dy) < radius + BUG_OBSTACLE_MARGIN) return false;
+    const dx = Math.max(o.x - x, x - (o.x + o.width), 0);
+    if (dx >= threshold) continue;
+    const verticalPad = Math.sqrt(threshold * threshold - dx * dx);
+    bands.push([0, o.gapY + verticalPad]);
+    bands.push([o.gapY + o.gapHeight - verticalPad, HEIGHT - GROUND_HEIGHT]);
+  }
+  return bands;
+}
+
+function mergeBands(bands) {
+  const sorted = bands.slice().sort((a, b) => a[0] - b[0]);
+  const merged = [];
+  for (const [start, end] of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && start <= last[1]) {
+      last[1] = Math.max(last[1], end);
+    } else {
+      merged.push([start, end]);
     }
   }
-  return true;
+  return merged;
+}
+
+function freeSegments(forbidden, rangeStart, rangeEnd) {
+  const clipped = forbidden
+    .map(([start, end]) => [Math.max(start, rangeStart), Math.min(end, rangeEnd)])
+    .filter(([start, end]) => start < end);
+  const merged = mergeBands(clipped);
+  const free = [];
+  let cursor = rangeStart;
+  for (const [start, end] of merged) {
+    if (start > cursor) free.push([cursor, start]);
+    cursor = Math.max(cursor, end);
+  }
+  if (cursor < rangeEnd) free.push([cursor, rangeEnd]);
+  return free;
+}
+
+function pickFromSegments(segments) {
+  const total = segments.reduce((sum, [start, end]) => sum + (end - start), 0);
+  if (total <= 0) return null;
+  let r = Math.random() * total;
+  for (const [start, end] of segments) {
+    const length = end - start;
+    if (r <= length) return start + r;
+    r -= length;
+  }
+  return segments[segments.length - 1][1];
 }
 
 function spawnBug() {
-  const margin = 30;
   const spawnX = WIDTH + 20;
-  const bugRadius = 10;
-  let y = margin + Math.random() * (HEIGHT - GROUND_HEIGHT - margin * 2);
-  for (let attempt = 0; attempt < BUG_SPAWN_ATTEMPTS && !isClearOfObstacles(spawnX, y, bugRadius); attempt++) {
-    y = margin + Math.random() * (HEIGHT - GROUND_HEIGHT - margin * 2);
-  }
+  const threshold = BUG_RADIUS + BUG_OBSTACLE_CLEARANCE;
+  const forbidden = forbiddenBandsAt(spawnX, threshold);
+  const segments = freeSegments(forbidden, BUG_MARGIN, HEIGHT - GROUND_HEIGHT - BUG_MARGIN);
+  const y = pickFromSegments(segments) ?? HEIGHT / 2;
   bugs.push(new Bug(spawnX, y, BUG_SPEED));
 }
 
@@ -85,10 +125,32 @@ function findNearestBug() {
   return nearest;
 }
 
+function loadHighScore() {
+  try {
+    const stored = Number(localStorage.getItem(HIGH_SCORE_KEY));
+    return Number.isFinite(stored) && stored > 0 ? stored : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveHighScore(value) {
+  try {
+    localStorage.setItem(HIGH_SCORE_KEY, String(value));
+  } catch {
+    // localStorage unavailable (private mode, disabled): high score just won't persist.
+  }
+}
+
 function endGame() {
   state = "gameover";
+  const isNewHighScore = score > highScore;
+  if (isNewHighScore) {
+    highScore = score;
+    saveHighScore(highScore);
+  }
   overlayTitle.textContent = "Debugged!";
-  overlayMessage.innerHTML = `Score: <strong>${score}</strong> bug${score === 1 ? "" : "s"} squashed.<br />Press Space or tap to try again.`;
+  overlayMessage.innerHTML = `Score: <strong>${score}</strong> bug${score === 1 ? "" : "s"} squashed.<br />Best: <strong>${highScore}</strong>${isNewHighScore ? " (new high score!)" : ""}<br />Press Space or tap to try again.`;
   startButton.textContent = "Retry";
   overlay.hidden = false;
   playHit();
