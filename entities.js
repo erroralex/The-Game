@@ -29,11 +29,14 @@ export class Duke {
     this.vy = FLAP_VELOCITY;
   }
 
-  dash() {
+  dash(target = null) {
     if (this.dashCharges <= 0) return false;
     this.dashCharges -= 1;
     this.x = this.baseX + DASH_LUNGE;
     this.dashTimer = DASH_INVINCIBLE_TIME;
+    if (target) {
+      this.vy = (target.y - this.y) / DASH_INVINCIBLE_TIME;
+    }
     return true;
   }
 

@@ -1,4 +1,6 @@
-import { Duke, Obstacle, Bug, DASH_MAX_CHARGES } from "./entities.js";
+import { Duke, Obstacle, Bug } from "./entities.js";
+import { createCodeLines, drawBackground, drawObstacle, drawBug, drawDuke, drawHud } from "./render.js";
+import { playFlap, playDash, playCollect, playHit, playGameOver } from "./sound.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -18,6 +20,10 @@ const OBSTACLE_INTERVAL = 1.5;
 
 const BUG_SPEED = 170;
 const BUG_INTERVAL = 1.9;
+const BUG_OBSTACLE_MARGIN = 30;
+const BUG_SPAWN_ATTEMPTS = 20;
+
+const codeLines = createCodeLines(WIDTH, HEIGHT);
 
 let state = "start"; // "start" | "playing" | "gameover"
 let duke, obstacles, bugs, score, obstacleTimer, bugTimer, lastTime;
@@ -38,10 +44,45 @@ function spawnObstacle() {
   obstacles.push(new Obstacle(WIDTH, OBSTACLE_WIDTH, gapY, OBSTACLE_GAP, OBSTACLE_SPEED, HEIGHT - GROUND_HEIGHT));
 }
 
+function isClearOfObstacles(x, y, radius) {
+  for (const o of obstacles) {
+    const rects = [
+      { x: o.x, y: 0, w: o.width, h: o.gapY },
+      { x: o.x, y: o.gapY + o.gapHeight, w: o.width, h: HEIGHT - GROUND_HEIGHT - (o.gapY + o.gapHeight) },
+    ];
+    for (const r of rects) {
+      const closestX = Math.max(r.x, Math.min(x, r.x + r.w));
+      const closestY = Math.max(r.y, Math.min(y, r.y + r.h));
+      const dx = x - closestX;
+      const dy = y - closestY;
+      if (Math.hypot(dx, dy) < radius + BUG_OBSTACLE_MARGIN) return false;
+    }
+  }
+  return true;
+}
+
 function spawnBug() {
   const margin = 30;
-  const y = margin + Math.random() * (HEIGHT - GROUND_HEIGHT - margin * 2);
-  bugs.push(new Bug(WIDTH + 20, y, BUG_SPEED));
+  const spawnX = WIDTH + 20;
+  const bugRadius = 10;
+  let y = margin + Math.random() * (HEIGHT - GROUND_HEIGHT - margin * 2);
+  for (let attempt = 0; attempt < BUG_SPAWN_ATTEMPTS && !isClearOfObstacles(spawnX, y, bugRadius); attempt++) {
+    y = margin + Math.random() * (HEIGHT - GROUND_HEIGHT - margin * 2);
+  }
+  bugs.push(new Bug(spawnX, y, BUG_SPEED));
+}
+
+function findNearestBug() {
+  let nearest = null;
+  let nearestDist = Infinity;
+  for (const bug of bugs) {
+    const dist = Math.hypot(bug.x - duke.x, bug.y - duke.y);
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      nearest = bug;
+    }
+  }
+  return nearest;
 }
 
 function endGame() {
@@ -50,6 +91,8 @@ function endGame() {
   overlayMessage.innerHTML = `Score: <strong>${score}</strong> bug${score === 1 ? "" : "s"} squashed.<br />Press Space or tap to try again.`;
   startButton.textContent = "Retry";
   overlay.hidden = false;
+  playHit();
+  playGameOver();
 }
 
 function startGame() {
@@ -65,12 +108,16 @@ function handleFlap() {
   }
   if (state === "playing") {
     duke.flap();
+    playFlap();
   }
 }
 
 function handleDash() {
   if (state === "playing") {
-    duke.dash();
+    const target = findNearestBug();
+    if (duke.dash(target)) {
+      playDash();
+    }
   }
 }
 
@@ -135,183 +182,18 @@ function update(dt) {
     if (bug.collidesWith(duke)) {
       bug.collected = true;
       score += 1;
+      playCollect();
     }
   }
   bugs = bugs.filter((b) => !b.offscreen && !b.collected);
 }
 
-function drawBackground() {
-  const gradient = ctx.createLinearGradient(0, 0, 0, HEIGHT);
-  gradient.addColorStop(0, "#6ec6ff");
-  gradient.addColorStop(1, "#bfe9ff");
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-  ctx.fillStyle = "#2e2620";
-  ctx.fillRect(0, HEIGHT - GROUND_HEIGHT, WIDTH, GROUND_HEIGHT);
-  ctx.fillStyle = "#4a3d30";
-  ctx.fillRect(0, HEIGHT - GROUND_HEIGHT, WIDTH, 6);
-}
-
-function drawObstacle(o) {
-  ctx.fillStyle = "#c0392b";
-  ctx.fillRect(o.x, 0, o.width, o.gapY);
-  ctx.fillRect(o.x, o.gapY + o.gapHeight, o.width, HEIGHT - GROUND_HEIGHT - (o.gapY + o.gapHeight));
-
-  ctx.strokeStyle = "rgba(255,255,255,0.35)";
-  ctx.lineWidth = 3;
-  const lineSpacing = 14;
-  for (let ly = 10; ly < o.gapY - 5; ly += lineSpacing) {
-    ctx.beginPath();
-    ctx.moveTo(o.x + 8, ly);
-    ctx.lineTo(o.x + o.width - 8, ly);
-    ctx.stroke();
-  }
-  const bottomStart = o.gapY + o.gapHeight + 10;
-  for (let ly = bottomStart; ly < HEIGHT - GROUND_HEIGHT - 5; ly += lineSpacing) {
-    ctx.beginPath();
-    ctx.moveTo(o.x + 8, ly);
-    ctx.lineTo(o.x + o.width - 8, ly);
-    ctx.stroke();
-  }
-
-  ctx.fillStyle = "#8e2a1f";
-  ctx.fillRect(o.x - 4, o.gapY - 10, o.width + 8, 10);
-  ctx.fillRect(o.x - 4, o.gapY + o.gapHeight, o.width + 8, 10);
-}
-
-function drawBug(b) {
-  ctx.save();
-  ctx.translate(b.x, b.y);
-  ctx.fillStyle = "#6bbf3a";
-  ctx.beginPath();
-  ctx.ellipse(0, 0, b.radius, b.radius * 0.75, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "#3f7a1f";
-  ctx.lineWidth = 2;
-  for (const dx of [-6, 0, 6]) {
-    ctx.beginPath();
-    ctx.moveTo(dx, b.radius * 0.5);
-    ctx.lineTo(dx * 1.6, b.radius * 1.1);
-    ctx.stroke();
-  }
-  ctx.fillStyle = "#274d12";
-  ctx.beginPath();
-  ctx.arc(-4, -2, 2, 0, Math.PI * 2);
-  ctx.arc(4, -2, 2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawDuke() {
-  const s = duke.radius / 14;
-
-  ctx.save();
-  ctx.translate(duke.x, duke.y);
-  ctx.rotate(duke.rotation);
-
-  if (duke.invincible) {
-    ctx.shadowColor = "#ffe066";
-    ctx.shadowBlur = 18;
-  }
-
-  ctx.scale(s, s);
-
-  // body: white cone with a wavy hem and a small pointed left foot
-  ctx.beginPath();
-  ctx.moveTo(1, -23);
-  ctx.quadraticCurveTo(11, -12, 14, 3);
-  ctx.quadraticCurveTo(16, 12, 10, 17);
-  ctx.quadraticCurveTo(2, 22, -6, 17);
-  ctx.quadraticCurveTo(-11, 14, -9, 8);
-  ctx.lineTo(-14, 11);
-  ctx.quadraticCurveTo(-10, 3, -9, -2);
-  ctx.quadraticCurveTo(-9, -14, 1, -23);
-  ctx.closePath();
-  ctx.fillStyle = "#fdfdfd";
-  ctx.fill();
-  ctx.lineWidth = 1.6;
-  ctx.strokeStyle = "#1c1c1c";
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-
-  // hood: black, pointed at the top
-  ctx.beginPath();
-  ctx.moveTo(1, -23);
-  ctx.quadraticCurveTo(10, -13, 11, -4);
-  ctx.quadraticCurveTo(2, -9, -8, -3);
-  ctx.quadraticCurveTo(-8, -14, 1, -23);
-  ctx.closePath();
-  ctx.fillStyle = "#1c1c1c";
-  ctx.fill();
-
-  // eye: red oval with a highlight
-  ctx.save();
-  ctx.translate(-1, -8);
-  ctx.rotate(-0.3);
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 5.5, 4.2, 0, 0, Math.PI * 2);
-  ctx.fillStyle = "#e8483a";
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(-1.5, -1.3, 2, 1.3, -0.4, 0, Math.PI * 2);
-  ctx.fillStyle = "#ff9d8f";
-  ctx.fill();
-  ctx.restore();
-
-  // left arm: small static stub
-  ctx.beginPath();
-  ctx.moveTo(-9, 4);
-  ctx.quadraticCurveTo(-15, 6, -14, 12);
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = "#1c1c1c";
-  ctx.lineCap = "round";
-  ctx.stroke();
-
-  // right arm: waves independently of flight
-  const waveAngle = 0.5 + Math.sin(animTime * 6) * 0.35;
-  ctx.save();
-  ctx.translate(11, -6);
-  ctx.rotate(waveAngle);
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(0, -15);
-  ctx.lineWidth = 3.4;
-  ctx.strokeStyle = "#1c1c1c";
-  ctx.lineCap = "round";
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(0, -18, 4, 0, Math.PI * 2);
-  ctx.fillStyle = "#1c1c1c";
-  ctx.fill();
-  ctx.restore();
-
-  ctx.restore();
-}
-
-function drawHud() {
-  ctx.fillStyle = "#1c1c1c";
-  ctx.font = "bold 28px 'Segoe UI', sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(String(score), WIDTH / 2, 46);
-
-  const chargeRadius = 6;
-  const spacing = 18;
-  const startX = WIDTH / 2 - ((DASH_MAX_CHARGES - 1) * spacing) / 2;
-  for (let i = 0; i < DASH_MAX_CHARGES; i++) {
-    ctx.beginPath();
-    ctx.arc(startX + i * spacing, 64, chargeRadius, 0, Math.PI * 2);
-    ctx.fillStyle = i < duke.dashCharges ? "#ffb703" : "rgba(28,28,28,0.25)";
-    ctx.fill();
-  }
-}
-
 function draw() {
-  drawBackground();
-  for (const o of obstacles) drawObstacle(o);
-  for (const b of bugs) drawBug(b);
-  if (state !== "start") drawDuke();
-  if (state === "playing") drawHud();
+  drawBackground(ctx, WIDTH, HEIGHT, GROUND_HEIGHT, codeLines);
+  for (const o of obstacles) drawObstacle(ctx, o, HEIGHT, GROUND_HEIGHT);
+  for (const b of bugs) drawBug(ctx, b);
+  if (state !== "start") drawDuke(ctx, duke, animTime);
+  if (state === "playing") drawHud(ctx, WIDTH, score, duke);
 }
 
 function loop(timestamp) {
