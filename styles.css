@@ -96,9 +96,9 @@ canvas {
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  background: rgba(10, 15, 25, 0.55);
+  padding-bottom: 8%;
 }
 
 .overlay[hidden] {
@@ -106,25 +106,20 @@ canvas {
 }
 
 .panel {
-  background: var(--paper);
-  color: var(--ink);
-  border-radius: 10px;
-  padding: 1.25rem 1.5rem;
   text-align: center;
-  max-width: 85%;
 }
 
-
 button {
-  margin-top: 0.75rem;
-  padding: 0.6rem 1.5rem;
-  font-size: 1rem;
-  font-weight: 600;
+  margin: 0;
+  padding: 0.75rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 700;
   border: none;
-  border-radius: 8px;
+  border-radius: 999px;
   background: var(--duke-red);
   color: var(--paper);
   cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
 }
 
 button:hover {

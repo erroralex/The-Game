@@ -89,6 +89,13 @@ HTML5 Canvas + vanilla JS, no build step, no backend.
     removed the redundant title/instructions text from the white start/
     game-over overlay panel (now just the Start/Retry button) since the
     speech bubble carries that messaging.
+  - **Overlay contrast fix:** the `.overlay` dim scrim
+    (`rgba(10,15,25,0.55)`) sat on top of the narrator and washed out the
+    character's colors; removed it. The white `.panel` card behind
+    Start/Retry was also oversized for a single button; replaced with a
+    compact floating pill button (drop shadow for contrast, no card
+    background), anchored near the bottom of the stage instead of centered
+    over the character's torso.
   - Verified in-browser via claude-in-chrome: background/obstacle/bug
     rendering, dash-through-obstacle-into-bug homing, collision/game-over
     flow, high-score persistence across a page reload, and the narrator
