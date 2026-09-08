@@ -6,6 +6,7 @@ node_modules/
 
 ### Claude Code ###
 .claude/skills/
+.claude/scheduled_tasks.lock
 docs/
 
 ### IDE ###

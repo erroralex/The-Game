@@ -9,6 +9,8 @@
 - **Build:** none (static files, no compilation)
 - **Test:** manual/browser-based (no automated test suite for this scope)
 - **Run locally:** `npx serve .` from the project root, then open the printed localhost URL
+  (or the "Play Duke's Debug Dash" compound run configuration in `.idea/runConfigurations/`,
+  which starts the server on port 5173 and opens it in the browser)
 
 ## Workflow
 
