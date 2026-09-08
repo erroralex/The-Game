@@ -1,0 +1,17 @@
+### Node ###
+node_modules/
+
+### Starter kit (assembly source, not part of this project) ###
+/drop-in-brain-main/
+
+### Claude Code ###
+.claude/skills/
+docs/
+
+### IDE ###
+.idea/
+*.iml
+
+### OS ###
+.DS_Store
+Thumbs.db
