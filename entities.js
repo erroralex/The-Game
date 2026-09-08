@@ -2,7 +2,7 @@ export const GRAVITY = 1500;
 export const FLAP_VELOCITY = -400;
 export const MAX_FALL_SPEED = 650;
 
-export const DASH_LUNGE = 55;
+export const DASH_LUNGE = 110;
 export const DASH_INVINCIBLE_TIME = 0.35;
 export const DASH_SPRING = 7;
 export const DASH_MAX_CHARGES = 3;
