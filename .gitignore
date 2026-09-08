@@ -4,6 +4,9 @@ node_modules/
 ### Starter kit (assembly source, not part of this project) ###
 /drop-in-brain-main/
 
+### Reference assets not wired into the game (Duke is drawn as vectors) ###
+/assets/
+
 ### Claude Code ###
 .claude/skills/
 .claude/scheduled_tasks.lock

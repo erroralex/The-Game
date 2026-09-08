@@ -21,6 +21,7 @@ const BUG_INTERVAL = 1.9;
 
 let state = "start"; // "start" | "playing" | "gameover"
 let duke, obstacles, bugs, score, obstacleTimer, bugTimer, lastTime;
+let animTime = 0;
 
 function resetGame() {
   duke = new Duke(90, HEIGHT / 2);
@@ -203,6 +204,8 @@ function drawBug(b) {
 }
 
 function drawDuke() {
+  const s = duke.radius / 14;
+
   ctx.save();
   ctx.translate(duke.x, duke.y);
   ctx.rotate(duke.rotation);
@@ -212,26 +215,76 @@ function drawDuke() {
     ctx.shadowBlur = 18;
   }
 
-  ctx.fillStyle = "#d13b2a";
+  ctx.scale(s, s);
+
+  // body: white cone with a wavy hem and a small pointed left foot
   ctx.beginPath();
-  ctx.ellipse(0, 0, duke.radius, duke.radius * 0.9, 0, 0, Math.PI * 2);
+  ctx.moveTo(1, -23);
+  ctx.quadraticCurveTo(11, -12, 14, 3);
+  ctx.quadraticCurveTo(16, 12, 10, 17);
+  ctx.quadraticCurveTo(2, 22, -6, 17);
+  ctx.quadraticCurveTo(-11, 14, -9, 8);
+  ctx.lineTo(-14, 11);
+  ctx.quadraticCurveTo(-10, 3, -9, -2);
+  ctx.quadraticCurveTo(-9, -14, 1, -23);
+  ctx.closePath();
+  ctx.fillStyle = "#fdfdfd";
   ctx.fill();
+  ctx.lineWidth = 1.6;
+  ctx.strokeStyle = "#1c1c1c";
+  ctx.stroke();
   ctx.shadowBlur = 0;
 
-  ctx.fillStyle = "#fff";
+  // hood: black, pointed at the top
   ctx.beginPath();
-  ctx.ellipse(6, -4, 6, 7, 0, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.moveTo(1, -23);
+  ctx.quadraticCurveTo(10, -13, 11, -4);
+  ctx.quadraticCurveTo(2, -9, -8, -3);
+  ctx.quadraticCurveTo(-8, -14, 1, -23);
+  ctx.closePath();
   ctx.fillStyle = "#1c1c1c";
-  ctx.beginPath();
-  ctx.arc(8, -3, 3, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = "#8e2a1f";
-  ctx.lineWidth = 2;
+  // eye: red oval with a highlight
+  ctx.save();
+  ctx.translate(-1, -8);
+  ctx.rotate(-0.3);
   ctx.beginPath();
-  ctx.arc(-4, 2, 5, 0.2, Math.PI - 0.2);
+  ctx.ellipse(0, 0, 5.5, 4.2, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#e8483a";
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(-1.5, -1.3, 2, 1.3, -0.4, 0, Math.PI * 2);
+  ctx.fillStyle = "#ff9d8f";
+  ctx.fill();
+  ctx.restore();
+
+  // left arm: small static stub
+  ctx.beginPath();
+  ctx.moveTo(-9, 4);
+  ctx.quadraticCurveTo(-15, 6, -14, 12);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#1c1c1c";
+  ctx.lineCap = "round";
   ctx.stroke();
+
+  // right arm: waves independently of flight
+  const waveAngle = 0.5 + Math.sin(animTime * 6) * 0.35;
+  ctx.save();
+  ctx.translate(11, -6);
+  ctx.rotate(waveAngle);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, -15);
+  ctx.lineWidth = 3.4;
+  ctx.strokeStyle = "#1c1c1c";
+  ctx.lineCap = "round";
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, -18, 4, 0, Math.PI * 2);
+  ctx.fillStyle = "#1c1c1c";
+  ctx.fill();
+  ctx.restore();
 
   ctx.restore();
 }
@@ -265,6 +318,7 @@ function loop(timestamp) {
   if (lastTime === undefined) lastTime = timestamp;
   const dt = Math.min((timestamp - lastTime) / 1000, 1 / 30);
   lastTime = timestamp;
+  animTime += dt;
 
   if (state === "playing") {
     update(dt);
