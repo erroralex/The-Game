@@ -109,7 +109,9 @@ function drawHazardEdge(ctx, x, w, edgeY) {
 }
 
 export function drawObstacle(ctx, o, height, groundHeight) {
-  const rand = seededRandom(o.gapY * 131 + o.width);
+  // Uses the obstacle's fixed spawn-time seed (not the live gapY) so an
+  // oscillating obstacle's panel pattern stays stable instead of flickering.
+  const rand = seededRandom(o.seed);
   const bottomHeight = height - groundHeight - (o.gapY + o.gapHeight);
 
   drawStackSegment(ctx, rand, o.x, 0, o.width, o.gapY);

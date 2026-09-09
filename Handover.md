@@ -153,15 +153,66 @@ HTML5 Canvas + vanilla JS, no build step, no backend.
   playing, just silently, on every Retry after the first game over. Fixed
   by having `startMusic()` cancel any scheduled ramp and reset the gain to
   `isMuted ? 0 : 0.22` each time it starts.
+  - **Status:** the project owner reported music was still silent after
+    Retry even after this fix was pushed (commit `67943a4`). Re-read the
+    fix and the logic looks correct (verified no other `startMusic`/
+    `stopMusic`/`getMusicGain` definitions exist, and the gain-reset
+    ordering is sound). Not yet reproduced or disproven, since
+    claude-in-chrome could not connect this session. Leading theories:
+    stale GitHub Pages CDN cache at the moment they tested (most likely,
+    given the timing), or a real second bug not yet found. **Needs a
+    fresh manual check** (hard refresh on `localhost:5173`, check the
+    DevTools console for errors on Retry) before considering this closed.
+
+## Difficulty Ramp (oscillating obstacles, milestones)
+- **Oscillating obstacles:** every 3-5 obstacles (randomized per-gap via
+  `randInt(OSCILLATE_MIN_GAP, OSCILLATE_MAX_GAP)` in `game.js`), the next
+  spawned obstacle's gap drifts up and down on a sine wave
+  (`Obstacle.update` in `entities.js`: `gapY = baseGapY + sin(time *
+  angularSpeed + phase) * amplitude`, amplitude 45px, angular speed
+  0.7-1.1 rad/s, random phase so multiple oscillating obstacles don't
+  sync). `collidesWith` already reads `gapY` live each frame so collision
+  detection just works; `render.js`'s `drawObstacle` was changed to seed
+  its pseudo-code panel pattern from a fixed `obstacle.seed` (captured at
+  spawn) instead of the live `gapY`, so an oscillating obstacle's panel
+  no longer flickers as its gap moves.
+  - **Bug-placement safety:** the existing deterministic bug-placement
+    algorithm (`forbiddenBandsAt` in `game.js`) assumed a fixed `gapY` per
+    obstacle. Changed it to use each obstacle's `minGapY`/`maxGapY` (its
+    full oscillation range, precomputed at spawn in `entities.js`) instead
+    of its instantaneous `gapY`, so a bug spawn stays clear of the gap no
+    matter where the oscillation currently is. Re-verified the "no bug
+    spawns somewhere unreachable" guarantee with a new adversarial
+    simulation (100k trials, ~25% of obstacles oscillating, checking
+    collision at 500 time steps across each bug's full lifetime): 0
+    failures. Simulation script was scratch-only, not committed.
+- **Milestone every 10 points:** collecting a bug that makes `score` a
+  multiple of `MILESTONE_SCORE_STEP` (10) plays a distinct ascending
+  arpeggio (`playMilestone()` in `sound.js`, a C5-E5-G5-C6 major arpeggio)
+  instead of the normal collect chime, and bumps `currentObstacleSpeed`/
+  `currentBugSpeed` by `MILESTONE_SPEED_FACTOR` (5%). The bump is applied
+  to every obstacle and bug **currently on screen** as well as future
+  spawns (`game.js`, in the collision loop), not just future spawns alone
+  - this matters because the bug-placement algorithm's safety guarantee
+    depends on all concurrently-existing obstacles/bugs moving at the
+    same speed; bumping only future spawns would let an old, slower
+    obstacle and a new, faster bug drift out of their assumed relative
+    positions.
 
 ## Next Steps
+- **Verify the music-restart fix** (see Bug Fixes above) with a fresh
+  manual check; not yet confirmed working after the project owner's report
+  that it was still silent post-fix.
 - Reconnect claude-in-chrome (or do a manual pass) to verify the narrator
   bubble/tail positioning and the two-finger dash gesture on an actual
   touch device; current values are untested beyond the desktop screenshots
   the project owner shared.
 - Manual playtest with audio unmuted to verify music volume balance against
-  SFX during gameplay.
-- Confirm difficulty feel now that obstacle spacing, bug placement, and dash
-  reach changed (gravity, flap strength, gap/speed, spawn intervals).
+  SFX during gameplay, and to feel out the new oscillating obstacles and
+  the every-10-points speed ramp (numbers are a first guess, untested by
+  a human hand).
+- Confirm overall difficulty feel now that obstacle spacing, bug placement,
+  dash reach, oscillation, and the speed ramp have all changed (gravity,
+  flap strength, gap/speed, spawn intervals).
 - No automated tests exist yet (manual/browser verification only, per the
   Project header); add some if the game grows past a single demo session.

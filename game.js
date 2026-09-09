@@ -1,6 +1,6 @@
 import { Duke, Obstacle, Bug } from "./entities.js";
 import { createCodeLines, drawBackground, drawObstacle, drawBug, drawDuke, drawHud } from "./render.js";
-import { playFlap, playDash, playCollect, playHit, playGameOver } from "./sound.js";
+import { playFlap, playDash, playCollect, playHit, playGameOver, playMilestone } from "./sound.js";
 import { startMusic, stopMusic, toggleMusicMute, isMusicMuted } from "./music.js";
 import { drawNarrator } from "./narrator.js";
 
@@ -29,6 +29,15 @@ const BUG_MARGIN = 30;
 const BUG_RADIUS = 10;
 const BUG_OBSTACLE_CLEARANCE = 36;
 
+const OSCILLATE_MIN_GAP = 3; // obstacles between one oscillating obstacle and the next
+const OSCILLATE_MAX_GAP = 5;
+const OSCILLATE_AMPLITUDE = 45;
+const OSCILLATE_SPEED_MIN = 0.7; // rad/s, slow drift
+const OSCILLATE_SPEED_MAX = 1.1;
+
+const MILESTONE_SCORE_STEP = 10;
+const MILESTONE_SPEED_FACTOR = 1.05;
+
 const HIGH_SCORE_KEY = "dukesDebugDash.highScore";
 
 const codeLines = createCodeLines(WIDTH, HEIGHT);
@@ -37,6 +46,11 @@ let state = "start"; // "start" | "playing" | "gameover"
 let duke, obstacles, bugs, score, obstacleTimer, bugTimer, lastTime;
 let animTime = 0;
 let highScore = loadHighScore();
+let obstacleSpawnCount, nextOscillateAt, currentObstacleSpeed, currentBugSpeed;
+
+function randInt(min, max) {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
 
 function resetGame() {
   duke = new Duke(90, HEIGHT / 2);
@@ -45,24 +59,41 @@ function resetGame() {
   score = 0;
   obstacleTimer = 0;
   bugTimer = BUG_INTERVAL / 2;
+  obstacleSpawnCount = 0;
+  nextOscillateAt = randInt(OSCILLATE_MIN_GAP, OSCILLATE_MAX_GAP);
+  currentObstacleSpeed = OBSTACLE_SPEED;
+  currentBugSpeed = BUG_SPEED;
 }
 
 function spawnObstacle() {
-  const margin = 60;
+  obstacleSpawnCount += 1;
+  const oscillate = obstacleSpawnCount === nextOscillateAt;
+  if (oscillate) {
+    nextOscillateAt = obstacleSpawnCount + randInt(OSCILLATE_MIN_GAP, OSCILLATE_MAX_GAP);
+  }
+
+  const margin = oscillate ? 60 + OSCILLATE_AMPLITUDE : 60;
   const gapY = margin + Math.random() * (HEIGHT - GROUND_HEIGHT - OBSTACLE_GAP - margin * 2);
-  obstacles.push(new Obstacle(WIDTH, OBSTACLE_WIDTH, gapY, OBSTACLE_GAP, OBSTACLE_SPEED, HEIGHT - GROUND_HEIGHT));
+  const options = oscillate
+    ? { oscillate: true, amplitude: OSCILLATE_AMPLITUDE, angularSpeed: OSCILLATE_SPEED_MIN + Math.random() * (OSCILLATE_SPEED_MAX - OSCILLATE_SPEED_MIN) }
+    : {};
+  obstacles.push(new Obstacle(WIDTH, OBSTACLE_WIDTH, gapY, OBSTACLE_GAP, currentObstacleSpeed, HEIGHT - GROUND_HEIGHT, options));
 }
 
-// Bug and obstacle move at the same speed, so their horizontal offset never
-// changes after spawn: checking clearance once, at spawn time, holds forever.
+// Bug and obstacle move at the same speed at any given moment (see the
+// milestone speed bump, which updates every existing entity together), so
+// their horizontal offset never changes after spawn: checking clearance
+// once, at spawn time, holds forever. For an oscillating obstacle, the
+// gapY it will occupy varies over time, so we use its full min/max range
+// instead of its instantaneous position to stay clear for its whole life.
 function forbiddenBandsAt(x, threshold) {
   const bands = [];
   for (const o of obstacles) {
     const dx = Math.max(o.x - x, x - (o.x + o.width), 0);
     if (dx >= threshold) continue;
     const verticalPad = Math.sqrt(threshold * threshold - dx * dx);
-    bands.push([0, o.gapY + verticalPad]);
-    bands.push([o.gapY + o.gapHeight - verticalPad, HEIGHT - GROUND_HEIGHT]);
+    bands.push([0, o.maxGapY + verticalPad]);
+    bands.push([o.minGapY + o.gapHeight - verticalPad, HEIGHT - GROUND_HEIGHT]);
   }
   return bands;
 }
@@ -114,7 +145,7 @@ function spawnBug() {
   const forbidden = forbiddenBandsAt(spawnX, threshold);
   const segments = freeSegments(forbidden, BUG_MARGIN, HEIGHT - GROUND_HEIGHT - BUG_MARGIN);
   const y = pickFromSegments(segments) ?? HEIGHT / 2;
-  bugs.push(new Bug(spawnX, y, BUG_SPEED));
+  bugs.push(new Bug(spawnX, y, currentBugSpeed));
 }
 
 function findNearestBug() {
@@ -295,7 +326,15 @@ function update(dt) {
     if (bug.collidesWith(duke)) {
       bug.collected = true;
       score += 1;
-      playCollect();
+      if (score % MILESTONE_SCORE_STEP === 0) {
+        playMilestone();
+        currentObstacleSpeed *= MILESTONE_SPEED_FACTOR;
+        currentBugSpeed *= MILESTONE_SPEED_FACTOR;
+        for (const o of obstacles) o.speed = currentObstacleSpeed;
+        for (const b of bugs) b.speed = currentBugSpeed;
+      } else {
+        playCollect();
+      }
     }
   }
   bugs = bugs.filter((b) => !b.offscreen && !b.collected);

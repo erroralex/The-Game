@@ -40,6 +40,11 @@ export function playCollect() {
   playTone(1568, 0.1, { type: "triangle", peak: 0.18, delay: 0.06 });
 }
 
+export function playMilestone() {
+  const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6 major arpeggio
+  notes.forEach((freq, i) => playTone(freq, 0.18, { type: "triangle", peak: 0.22, delay: i * 0.07 }));
+}
+
 export function playHit() {
   playTone(120, 0.18, { type: "sawtooth", peak: 0.25 });
 }

@@ -76,17 +76,38 @@ export class Duke {
 }
 
 export class Obstacle {
-  constructor(x, width, gapY, gapHeight, speed, canvasHeight) {
+  constructor(x, width, gapY, gapHeight, speed, canvasHeight, options = {}) {
+    const { oscillate = false, amplitude = 0, angularSpeed = 0 } = options;
     this.x = x;
     this.width = width;
     this.gapY = gapY;
     this.gapHeight = gapHeight;
     this.speed = speed;
     this.canvasHeight = canvasHeight;
+
+    // Fixed at spawn so the rendered stack-panel pattern (seeded from gapY)
+    // doesn't flicker as an oscillating obstacle's gapY changes each frame.
+    this.seed = gapY * 131 + width;
+
+    this.oscillate = oscillate;
+    this.baseGapY = gapY;
+    this.amplitude = amplitude;
+    this.angularSpeed = angularSpeed;
+    this.phase = Math.random() * Math.PI * 2;
+    this.oscillateTime = 0;
+
+    // Worst-case gap range over the obstacle's lifetime; used by bug
+    // placement to stay clear of the gap no matter where it currently sits.
+    this.minGapY = oscillate ? gapY - amplitude : gapY;
+    this.maxGapY = oscillate ? gapY + amplitude : gapY;
   }
 
   update(dt) {
     this.x -= this.speed * dt;
+    if (this.oscillate) {
+      this.oscillateTime += dt;
+      this.gapY = this.baseGapY + Math.sin(this.oscillateTime * this.angularSpeed + this.phase) * this.amplitude;
+    }
   }
 
   get offscreen() {
