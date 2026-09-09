@@ -12,6 +12,8 @@
   (or `npm run play`, which starts the server on port 5173 and opens it in the browser;
   backed by `scripts/play.js`. The local-only "Play Duke's Debug Dash" IntelliJ run
   configuration in `.idea/runConfigurations/` runs the same script)
+- **Live:** hosted on GitHub Pages, serving `main` from the repo root, at
+  https://erroralex.github.io/The-Game/
 
 ## Workflow
 

@@ -105,6 +105,12 @@ HTML5 Canvas + vanilla JS, no build step, no backend.
     "play through a full session" timing checks slow; a manual playtest
     with a focused tab is still worth doing for difficulty/feel.
 
+## Deployment
+- Hosted on GitHub Pages, serving `main` from the repo root; no build step
+  or path changes were needed since `index.html` already uses relative
+  asset/script paths. Confirmed live and working at
+  https://erroralex.github.io/The-Game/
+
 ## Next Steps
 - Manual playtest with audio unmuted to verify music volume balance against
   SFX during gameplay.
