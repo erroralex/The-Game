@@ -111,7 +111,44 @@ HTML5 Canvas + vanilla JS, no build step, no backend.
   asset/script paths. Confirmed live and working at
   https://erroralex.github.io/The-Game/
 
+## UI Fixes (narrator/mute, mobile dash)
+- **Mute button:** moved out of the canvas overlay into a new `.header` row
+  next to the `<h1>` title (`index.html`/`styles.css`); no longer absolutely
+  positioned on top of the game canvas.
+- **Narrator/speech bubble layout:** switched `.narrator` from a flex row to
+  absolute positioning so the professor and bubble are placed independently
+  instead of the bubble being squeezed into his leftover width. Professor
+  (`.narrator-canvas`) is anchored bottom-left at 74% of stage height, sized
+  up from the original 96%-of-stage flex layout in a couple of iterative
+  passes against the project owner's screenshots. Bubble (`.speech-bubble`)
+  is anchored top-right (`top: 4%; right: 4%; width: 74%`), with a
+  `clip-path` triangle tail (`::after`) attached flush to its bottom-left
+  corner (no border-trick seam) angled down-left toward the professor's
+  face. Bubble text now uses `<strong>` for emphasis (styled via
+  `.speech-bubble strong`), and the game-over message in `game.js` builds
+  the same bold markup via `innerHTML` (safe: only numeric score/high-score
+  values are interpolated, never user input).
+  - Tuned entirely from the project owner's screenshots since the
+    claude-in-chrome browser extension was not connected this session (kept
+    reporting "not connected" across `tabs_context_mcp` calls); positioning
+    numbers (`top`/`right`/`width`/tail `left`) are a best estimate and may
+    need another visual pass once the extension is available or on a fresh
+    manual look.
+- **Touch dash:** added a two-finger-tap dash gesture for mobile, since
+  dash previously had no touch equivalent (only right-click/Shift). In
+  `game.js`, `canvas` pointerdown tracks active touch pointer IDs in a
+  `Set`; a single touch schedules a flap after a `TOUCH_FLAP_DELAY` (60ms)
+  grace period, and if a second finger lands within that window the flap is
+  canceled and a dash fires instead. Mouse clicks/right-clicks are
+  unaffected (instant, no delay). Added `touch-action: none` on the canvas
+  so the browser doesn't intercept the second finger for pinch-zoom/scroll.
+  Hint text in `index.html` updated to mention it.
+
 ## Next Steps
+- Reconnect claude-in-chrome (or do a manual pass) to verify the narrator
+  bubble/tail positioning and the two-finger dash gesture on an actual
+  touch device; current values are untested beyond the desktop screenshots
+  the project owner shared.
 - Manual playtest with audio unmuted to verify music volume balance against
   SFX during gameplay.
 - Confirm difficulty feel now that obstacle spacing, bug placement, and dash

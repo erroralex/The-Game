@@ -157,7 +157,7 @@ function endGame() {
   }
   startButton.textContent = "Retry";
   overlay.hidden = false;
-  narratorText.textContent = `Nice debugging! Score: ${score} bug${score === 1 ? "" : "s"}. Best: ${highScore}.${isNewHighScore ? " New high score!" : ""} Press Space or tap Retry to go again.`;
+  narratorText.innerHTML = `<strong>Nice debugging!</strong> Score: <strong>${score}</strong> bug${score === 1 ? "" : "s"}. Best: <strong>${highScore}</strong>.${isNewHighScore ? " <strong>New high score!</strong>" : ""} Press Space or tap Retry to go again.`;
   narrator.hidden = false;
   playHit();
   playGameOver();
@@ -218,12 +218,38 @@ muteButton.addEventListener("click", () => {
   updateMuteButton();
 });
 
+const TOUCH_FLAP_DELAY = 60; // ms grace period for a second finger to land and turn a tap into a dash
+const activeTouches = new Set();
+let touchFlapTimer = null;
+
 canvas.addEventListener("pointerdown", (e) => {
+  if (e.pointerType === "touch") {
+    activeTouches.add(e.pointerId);
+    if (activeTouches.size >= 2) {
+      clearTimeout(touchFlapTimer);
+      touchFlapTimer = null;
+      handleDash();
+    } else {
+      touchFlapTimer = setTimeout(() => {
+        touchFlapTimer = null;
+        handleFlap();
+      }, TOUCH_FLAP_DELAY);
+    }
+    return;
+  }
   if (e.button === 2) {
     handleDash();
   } else {
     handleFlap();
   }
+});
+
+canvas.addEventListener("pointerup", (e) => {
+  if (e.pointerType === "touch") activeTouches.delete(e.pointerId);
+});
+
+canvas.addEventListener("pointercancel", (e) => {
+  if (e.pointerType === "touch") activeTouches.delete(e.pointerId);
 });
 
 canvas.addEventListener("contextmenu", (e) => {
