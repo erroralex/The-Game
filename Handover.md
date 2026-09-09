@@ -144,6 +144,16 @@ HTML5 Canvas + vanilla JS, no build step, no backend.
   so the browser doesn't intercept the second finger for pinch-zoom/scroll.
   Hint text in `index.html` updated to mention it.
 
+## Bug Fixes
+- **Music silent after Retry:** `stopMusic()` (`music.js`) ramps the shared
+  `musicGain` node's gain to 0 over 50ms on game over, but `startMusic()`
+  never restored it. Since `getMusicGain()` only initializes the gain node
+  `if (!musicGain)`, the same node (still scheduled at 0) was reused on
+  every subsequent `startMusic()`, so the soundtrack kept scheduling and
+  playing, just silently, on every Retry after the first game over. Fixed
+  by having `startMusic()` cancel any scheduled ramp and reset the gain to
+  `isMuted ? 0 : 0.22` each time it starts.
+
 ## Next Steps
 - Reconnect claude-in-chrome (or do a manual pass) to verify the narrator
   bubble/tail positioning and the two-finger dash gesture on an actual

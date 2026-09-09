@@ -338,7 +338,10 @@ export function startMusic() {
   isPlaying = true;
   currentStep = 0;
   nextStepTime = ctx.currentTime + 0.05;
-  getMusicGain(ctx);
+
+  const gain = getMusicGain(ctx);
+  gain.gain.cancelScheduledValues(ctx.currentTime);
+  gain.gain.setValueAtTime(isMuted ? 0 : 0.22, ctx.currentTime);
 
   schedulerTimer = setInterval(scheduler, LOOKAHEAD_MS);
 }
