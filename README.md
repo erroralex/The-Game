@@ -1,7 +1,8 @@
 # Duke's Debug Dash
 
 A Flappy Bird-style browser game: Java's Duke mascot flies through
-stack-trace obstacles and dashes to collect bugs for score. Static HTML5
+stack-trace obstacles, collects bugs for score, and can burn a shield
+charge to safely break through an obstacle in a pinch. Static HTML5
 Canvas + vanilla JavaScript (ES modules), no build step, no backend.
 
 Play it live at https://erroralex.github.io/The-Game/, or run it locally
@@ -17,8 +18,8 @@ The app is a small set of ES modules, each with one job:
 | `entities.js` | Defines the game objects (`Duke`, `Obstacle`, `Bug`) and their physics/collision rules. |
 | `render.js` | Draws the background, obstacles, bugs, Duke, and HUD onto the canvas. Pure rendering, no state. |
 | `narrator.js` | Draws the professor narrator overlay image onto its own canvas. |
-| `sound.js` | Synthesizes short one-shot sound effects (flap, dash, collect, hit, game over) via the Web Audio API. |
-| `music.js` | Synthesizes and schedules the looping chiptune soundtrack via the Web Audio API, with a mute toggle. |
+| `sound.js` | Synthesizes short one-shot sound effects (flap, shield, collect, milestone, hit, game over) via the Web Audio API. |
+| `music.js` | Synthesizes and schedules the looping chiptune soundtrack via the Web Audio API, with a mute toggle and a tempo that ramps up with difficulty. |
 | `index.html` / `styles.css` | Page structure, canvas elements, overlay/HUD markup, and all visual styling. |
 
 ## Details
@@ -33,17 +34,28 @@ timers), and drives everything from a single `requestAnimationFrame` loop
 Responsibilities:
 - **Game state machine:** three states, `"start"`, `"playing"`, `"gameover"`,
   transitioned by `startGame()` and `endGame()`.
-- **Input handling:** keyboard (Space to flap, Shift to dash, `M` to mute)
-  and pointer events (click/tap to flap, right-click to dash), each routed
-  through `handleFlap()` / `handleDash()`.
+- **Input handling:** keyboard (Space to flap, Shift to activate the
+  shield, `M` to mute) and pointer events (click/tap to flap, right-click
+  or a two-finger tap to activate the shield), each routed through
+  `handleFlap()` / `handleShield()`.
 - **Spawning:** `spawnObstacle()` places stack-trace obstacles at a fixed
-  interval with a random gap position. `spawnBug()` places collectible bugs
-  using a deterministic placement algorithm (`forbiddenBandsAt` /
-  `freeSegments` / `pickFromSegments`) that computes the vertical bands
-  blocked by nearby obstacles and samples only from the guaranteed-clear
-  remainder, so a bug can never spawn somewhere unreachable.
-- **Dash targeting:** `findNearestBug()` locates the closest uncollected bug
-  so a dash can home in on it (see `Duke.dash` in `entities.js`).
+  interval with a random gap position; every 3-5 obstacles (randomized),
+  the spawned obstacle's gap also drifts slowly up and down
+  (`oscillate`/`amplitude`/`angularSpeed`, see `entities.js`).
+  `spawnBug()` places collectible bugs using a deterministic placement
+  algorithm (`forbiddenBandsAt` / `freeSegments` / `pickFromSegments`)
+  that computes the vertical bands blocked by nearby obstacles - using
+  an oscillating obstacle's full min/max gap range, not just its current
+  position - and samples only from the guaranteed-clear remainder, so a
+  bug can never spawn somewhere unreachable.
+- **Scoring:** collecting a bug awards 1 point; passing an obstacle
+  (surviving or safely breaking it with the shield) awards 0.25 points,
+  into the same score pool. `addScore(amount)` / `triggerMilestone()`
+  detect every 10-point crossing (via a floor comparison, robust to
+  fractional increments landing past a boundary rather than exactly on
+  it) and, on a crossing, play a distinct milestone fanfare and bump
+  obstacle/bug scroll speed and music tempo together by 5%, applied to
+  every entity currently on screen as well as future spawns.
 - **High score:** persisted to `localStorage` via `loadHighScore()` /
   `saveHighScore()`, shown on the game-over overlay.
 - **Update/draw loop:** `update(dt)` advances physics, collisions, and
@@ -56,24 +68,27 @@ Defines the game's data/physics objects as plain ES classes with no
 rendering or DOM knowledge.
 
 - **`Duke`** - the player character. Tracks position, vertical velocity,
-  rotation (for tilt), and dash charges. `flap()` applies an upward
-  velocity impulse; `dash(target)` lunges Duke forward, grants brief
-  invincibility, and (if a target bug is passed) arcs Duke's vertical
-  velocity to home toward it over the dash duration. `update(dt)` applies
-  gravity, spring-eases Duke's x position back to its base lane after a
-  dash, ticks down invincibility, and recharges dash charges over time.
+  rotation (for tilt), and shield charges. `flap()` applies an upward
+  velocity impulse. `activateShield()` consumes one of Duke's 3 fixed
+  shield charges (`SHIELD_MAX_CHARGES`, set once per run and never
+  recharges) and grants `SHIELD_DURATION` (0.35s) of invulnerability.
   `hitsCircle` / `hitsRect` are the collision primitives used by
   `Obstacle` and `Bug`.
 - **`Obstacle`** - a stack-trace wall with a vertical gap. Scrolls left at
-  a constant speed; `collidesWith(duke)` checks the top and bottom solid
-  rectangles against Duke's hitbox, ignoring collisions while Duke is
-  invincible (mid-dash).
+  a constant speed, optionally oscillating (`update(dt)` moves `gapY`
+  along a sine wave when `oscillate` is set). `collidesWith(duke)` reports
+  plain geometric overlap; it's `game.js` that decides what a collision
+  means (game over, or - if Duke is shielded - `break()`s the obstacle
+  instead, starting a 0.4s fade-out, `OBSTACLE_BREAK_FADE_DURATION`, during
+  which `collidesWith` returns false and `faded` eventually signals it's
+  gone).
 - **`Bug`** - a collectible. Scrolls left at a constant speed;
   `collidesWith(duke)` is a circle-circle check, and `collected` marks it
   consumed so it stops being drawn or checked.
 
-All tunable physics constants (gravity, flap strength, dash lunge
-distance/duration/charges) live at the top of this file.
+All tunable physics constants (gravity, flap strength, shield
+duration/charges, obstacle break fade duration) live at the top of this
+file.
 
 ### `render.js`
 
@@ -85,15 +100,19 @@ to draw, with no side effects on game state.
   randomly colored syntax-token bars) and the ground strip.
 - `drawObstacle(...)` - draws a stack-trace obstacle as two red "error
   panel" segments (accent bar, pseudo-code line fills via a seeded random
-  generator so each obstacle's look is stable across frames) with a
-  squiggly red hazard line at each gap edge.
+  generator, seeded from a fixed spawn-time value so an oscillating
+  obstacle's pattern doesn't flicker as its gap moves) with a squiggly red
+  hazard line at each gap edge. A broken obstacle fades out over 0.4s
+  while its palette shifts from red to green.
 - `drawBug(...)` - draws a bug as a green ellipse with leg lines and eye
   dots.
 - `drawDuke(...)` - draws Duke as a canvas vector sprite (white cone body,
   black pointed hood, red eye, a static left arm and a right arm that waves
-  continuously using `animTime`), with a glow effect while invincible.
-- `drawHud(...)` - draws the score and dash-charge indicator dots during
-  play.
+  continuously using `animTime`), with a golden radial-gradient aura and
+  glow while shielded.
+- `drawHud(...)` - draws the score and the shield-charge indicators (small
+  blue shield-icon glyphs, filled for remaining charges, dim outline for
+  spent ones).
 
 ### `narrator.js`
 
@@ -110,9 +129,10 @@ Short one-shot sound effects synthesized with the Web Audio API, no audio
 files. `getContext()` lazily creates (and resumes, if suspended by
 autoplay policy) a shared `AudioContext`, also reused by `music.js`.
 `playTone(freq, duration, options)` is the shared oscillator+gain
-primitive; `playFlap`, `playDash`, `playCollect`, `playHit`, and
-`playGameOver` each call it with tuned frequencies/waveforms to produce a
-distinct retro chip sound per event.
+primitive; `playFlap`, `playShieldActivate`, `playShieldBreak`,
+`playCollect`, `playMilestone`, `playHit`, and `playGameOver` each call it
+with tuned frequencies/waveforms to produce a distinct retro chip sound
+per event.
 
 ### `music.js`
 
@@ -122,17 +142,21 @@ Audio (no audio files or libraries). Uses a lookahead scheduler
 `SCHEDULE_AHEAD_SEC` ahead) for sample-accurate timing independent of
 `requestAnimationFrame` jitter. Synthesizes its own kick, snare, hi-hat,
 bassline, lead melody, and arpeggio chords as separate functions that
-schedule oscillators/noise bursts at each 16th-note step. `startMusic()` /
-`stopMusic()` are called by `game.js` on state transitions; `isMuted` is
-persisted to `localStorage` and toggled by `toggleMusicMute()`
-(`M` key or the on-screen mute button).
+schedule oscillators/noise bursts at each 16th-note step, spaced by a
+mutable `stepTime` (reset to its base value each `startMusic()`).
+`startMusic()` / `stopMusic()` are called by `game.js` on state
+transitions; `increaseMusicTempo(factor)` shortens `stepTime` so the beat
+speeds up in step with the game's difficulty ramp. `isMuted` is persisted
+to `localStorage` and toggled by `toggleMusicMute()` (`M` key or the
+on-screen mute button).
 
 ### `index.html` / `styles.css`
 
-`index.html` holds the game canvas, the narrator overlay markup (its own
-canvas plus a speech-bubble `<p>`), the mute button, and the start/retry
-overlay panel. `styles.css` provides the dark IDE-inspired page theme, the
-floating pill start/retry button, and narrator/overlay positioning.
+`index.html` holds the header (title + mute button), the game canvas, the
+narrator overlay markup (its own canvas plus a speech-bubble `<p>` with a
+connecting tail), and the start/retry overlay panel. `styles.css`
+provides the dark IDE-inspired page theme, the floating pill start/retry
+button, and narrator/overlay positioning.
 
 ### `scripts/play.js`
 
