@@ -1,5 +1,3 @@
-import { DASH_MAX_CHARGES } from "./entities.js";
-
 const CODE_COLORS = ["#569cd6", "#c586c0", "#9cdcfe", "#ce9178", "#4ec9b0", "#dcdcaa", "#6a9955", "#d4d4d4"];
 const GUTTER_WIDTH = 34;
 const LINE_HEIGHT = 16;
@@ -230,19 +228,9 @@ export function drawDuke(ctx, duke, animTime) {
   ctx.restore();
 }
 
-export function drawHud(ctx, width, score, duke) {
+export function drawHud(ctx, width, scoreLabel) {
   ctx.fillStyle = "#fdfdfd";
   ctx.font = "bold 28px 'Segoe UI', sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(String(score), width / 2, 46);
-
-  const chargeRadius = 6;
-  const spacing = 18;
-  const startX = width / 2 - ((DASH_MAX_CHARGES - 1) * spacing) / 2;
-  for (let i = 0; i < DASH_MAX_CHARGES; i++) {
-    ctx.beginPath();
-    ctx.arc(startX + i * spacing, 64, chargeRadius, 0, Math.PI * 2);
-    ctx.fillStyle = i < duke.dashCharges ? "#ffb703" : "rgba(253,253,253,0.25)";
-    ctx.fill();
-  }
+  ctx.fillText(scoreLabel, width / 2, 46);
 }

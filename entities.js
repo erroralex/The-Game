@@ -84,6 +84,7 @@ export class Obstacle {
     this.gapHeight = gapHeight;
     this.speed = speed;
     this.canvasHeight = canvasHeight;
+    this.scored = false;
 
     // Fixed at spawn so the rendered stack-panel pattern (seeded from gapY)
     // doesn't flicker as an oscillating obstacle's gapY changes each frame.

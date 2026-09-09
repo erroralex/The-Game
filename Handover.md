@@ -199,6 +199,46 @@ HTML5 Canvas + vanilla JS, no build step, no backend.
     obstacle and a new, faster bug drift out of their assumed relative
     positions.
 
+## Music tempo ramp, obstacle scoring, HUD cleanup
+- **Music speeds up with difficulty:** `music.js`'s `STEP_TIME` const
+  became a mutable `stepTime` (initialized from `BASE_STEP_TIME`, reset in
+  `startMusic()` so tempo starts fresh each game). New exported
+  `increaseMusicTempo(factor)` divides `stepTime` by `factor`, called from
+  `game.js`'s `triggerMilestone()` with the same `MILESTONE_SPEED_FACTOR`
+  used for obstacle/bug scroll speed, so the soundtrack speeds up in step
+  with the rest of the difficulty ramp every 10 points.
+- **Removed the dash-charge "coin" indicator:** the project owner flagged
+  three gold circles in the HUD as confusing clutter ("three golden
+  coins"). These were the dash-charge indicators in `render.js`'s
+  `drawHud` (three dots, `#ffb703` gold when a dash charge is ready,
+  dim otherwise). Removed the drawing code; `drawHud` now only draws the
+  score and takes a pre-formatted `scoreLabel` string instead of the raw
+  `duke` object. Dash charges still work exactly as before as a game
+  mechanic (`Duke.dashCharges` in `entities.js`), only their on-canvas
+  visualization is gone. Also dropped the now-unused `DASH_MAX_CHARGES`
+  import from `render.js`.
+- **Obstacles award 0.25 points on pass:** `Obstacle` (`entities.js`)
+  gained a `scored` flag; in `game.js`'s `update()`, once an obstacle's
+  right edge passes Duke's x position (and it hasn't already scored),
+  `addScore(OBSTACLE_PASS_SCORE)` (0.25) fires - same score pool as bug
+  pickups, same `highScore`/HUD/milestone system.
+  - Introduced a shared `addScore(amount)` / `triggerMilestone()` pair in
+    `game.js` to replace the old inline `score % MILESTONE_SCORE_STEP ===
+    0` check. That equality check would have missed milestones crossed by
+    a whole-point bug pickup landing past a boundary rather than exactly
+    on it (e.g. 9.75 + 1 = 10.75, never exactly 10) - `addScore` instead
+    compares `Math.floor(score / MILESTONE_SCORE_STEP)` before and after
+    the increment, so a crossing is detected regardless of the exact
+    landing value. (0.25 and 1 are both exactly representable in binary
+    floating point, so no rounding-drift concerns from accumulating
+    fractional score.)
+  - Score can now be fractional, so the HUD and game-over text use a new
+    `formatScore()` helper (whole numbers print bare, fractional ones as
+    `toFixed(2)`) instead of the old bare `${score}`/`String(score)`. The
+    game-over message's wording also changed from "Score: X bug(s)" to
+    "Score: X points", since the score no longer only represents bugs
+    collected.
+
 ## Next Steps
 - **Verify the music-restart fix** (see Bug Fixes above) with a fresh
   manual check; not yet confirmed working after the project owner's report

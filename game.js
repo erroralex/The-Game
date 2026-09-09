@@ -1,7 +1,7 @@
 import { Duke, Obstacle, Bug } from "./entities.js";
 import { createCodeLines, drawBackground, drawObstacle, drawBug, drawDuke, drawHud } from "./render.js";
 import { playFlap, playDash, playCollect, playHit, playGameOver, playMilestone } from "./sound.js";
-import { startMusic, stopMusic, toggleMusicMute, isMusicMuted } from "./music.js";
+import { startMusic, stopMusic, toggleMusicMute, isMusicMuted, increaseMusicTempo } from "./music.js";
 import { drawNarrator } from "./narrator.js";
 
 const canvas = document.getElementById("game");
@@ -38,6 +38,8 @@ const OSCILLATE_SPEED_MAX = 1.1;
 const MILESTONE_SCORE_STEP = 10;
 const MILESTONE_SPEED_FACTOR = 1.05;
 
+const OBSTACLE_PASS_SCORE = 0.25;
+
 const HIGH_SCORE_KEY = "dukesDebugDash.highScore";
 
 const codeLines = createCodeLines(WIDTH, HEIGHT);
@@ -50,6 +52,38 @@ let obstacleSpawnCount, nextOscillateAt, currentObstacleSpeed, currentBugSpeed;
 
 function randInt(min, max) {
   return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+function formatScore(value) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+// Speeds up obstacles, bugs (already on screen too, not just future spawns,
+// so concurrently-existing entities keep moving at the same speed - see the
+// comment on forbiddenBandsAt) and the music tempo together each time score
+// crosses a MILESTONE_SCORE_STEP boundary.
+function triggerMilestone() {
+  playMilestone();
+  currentObstacleSpeed *= MILESTONE_SPEED_FACTOR;
+  currentBugSpeed *= MILESTONE_SPEED_FACTOR;
+  for (const o of obstacles) o.speed = currentObstacleSpeed;
+  for (const b of bugs) b.speed = currentBugSpeed;
+  increaseMusicTempo(MILESTONE_SPEED_FACTOR);
+}
+
+// Adds to score and fires the milestone effects the moment score crosses a
+// MILESTONE_SCORE_STEP boundary. Uses a floor-based crossing check (not
+// `score % MILESTONE_SCORE_STEP === 0`) because a whole-point bug pickup can
+// land past a boundary without landing exactly on it (e.g. 9.75 -> 10.75).
+function addScore(amount) {
+  const previousMilestone = Math.floor(score / MILESTONE_SCORE_STEP);
+  score += amount;
+  const newMilestone = Math.floor(score / MILESTONE_SCORE_STEP);
+  if (newMilestone > previousMilestone) {
+    triggerMilestone();
+    return true;
+  }
+  return false;
 }
 
 function resetGame() {
@@ -188,7 +222,7 @@ function endGame() {
   }
   startButton.textContent = "Retry";
   overlay.hidden = false;
-  narratorText.innerHTML = `<strong>Nice debugging!</strong> Score: <strong>${score}</strong> bug${score === 1 ? "" : "s"}. Best: <strong>${highScore}</strong>.${isNewHighScore ? " <strong>New high score!</strong>" : ""} Press Space or tap Retry to go again.`;
+  narratorText.innerHTML = `<strong>Nice debugging!</strong> Score: <strong>${formatScore(score)}</strong> points. Best: <strong>${formatScore(highScore)}</strong>.${isNewHighScore ? " <strong>New high score!</strong>" : ""} Press Space or tap Retry to go again.`;
   narrator.hidden = false;
   playHit();
   playGameOver();
@@ -318,6 +352,10 @@ function update(dt) {
       endGame();
       return;
     }
+    if (!obstacle.scored && obstacle.x + obstacle.width < duke.x) {
+      obstacle.scored = true;
+      addScore(OBSTACLE_PASS_SCORE);
+    }
   }
   obstacles = obstacles.filter((o) => !o.offscreen);
 
@@ -325,16 +363,7 @@ function update(dt) {
     bug.update(dt);
     if (bug.collidesWith(duke)) {
       bug.collected = true;
-      score += 1;
-      if (score % MILESTONE_SCORE_STEP === 0) {
-        playMilestone();
-        currentObstacleSpeed *= MILESTONE_SPEED_FACTOR;
-        currentBugSpeed *= MILESTONE_SPEED_FACTOR;
-        for (const o of obstacles) o.speed = currentObstacleSpeed;
-        for (const b of bugs) b.speed = currentBugSpeed;
-      } else {
-        playCollect();
-      }
+      if (!addScore(1)) playCollect();
     }
   }
   bugs = bugs.filter((b) => !b.offscreen && !b.collected);
@@ -345,7 +374,7 @@ function draw() {
   for (const o of obstacles) drawObstacle(ctx, o, HEIGHT, GROUND_HEIGHT);
   for (const b of bugs) drawBug(ctx, b);
   if (state !== "start") drawDuke(ctx, duke, animTime);
-  if (state === "playing") drawHud(ctx, WIDTH, score, duke);
+  if (state === "playing") drawHud(ctx, WIDTH, formatScore(score));
   if (state !== "playing") drawNarrator(narratorCtx, narratorCanvas.width, narratorCanvas.height);
 }
 

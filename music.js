@@ -1,7 +1,7 @@
 import { getContext } from "./sound.js";
 
 const TEMPO = 150; // Beats per minute
-const STEP_TIME = 60 / TEMPO / 4; // 16th note duration (0.1s at 150 BPM)
+const BASE_STEP_TIME = 60 / TEMPO / 4; // 16th note duration (0.1s at 150 BPM)
 const TOTAL_STEPS = 256; // 16 bars * 16 steps
 const LOOKAHEAD_MS = 25;
 const SCHEDULE_AHEAD_SEC = 0.12;
@@ -14,6 +14,8 @@ let currentStep = 0;
 let nextStepTime = 0;
 let schedulerTimer = null;
 let isMuted = loadMutePreference();
+// Shortens as difficulty ramps up (see increaseMusicTempo), speeding up the beat.
+let stepTime = BASE_STEP_TIME;
 
 function loadMutePreference() {
   try {
@@ -150,10 +152,10 @@ function playBass(ctx, time, note) {
 
   filter.type = "lowpass";
   filter.frequency.setValueAtTime(1200, time);
-  filter.frequency.exponentialRampToValueAtTime(400, time + STEP_TIME * 0.9);
+  filter.frequency.exponentialRampToValueAtTime(400, time + stepTime * 0.9);
   filter.Q.setValueAtTime(3.0, time);
 
-  const duration = STEP_TIME * 0.88;
+  const duration = stepTime * 0.88;
   gain.gain.setValueAtTime(0.5, time);
   gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
 
@@ -169,7 +171,7 @@ function playBass(ctx, time, note) {
 function playLead(ctx, time, note, durationSteps) {
   if (!note) return;
   const master = getMusicGain(ctx);
-  const duration = durationSteps * STEP_TIME;
+  const duration = durationSteps * stepTime;
 
   const osc1 = ctx.createOscillator();
   const osc2 = ctx.createOscillator();
@@ -215,7 +217,7 @@ function playArp(ctx, time, note) {
   osc.type = "square";
   osc.frequency.setValueAtTime(midiToFreq(note), time);
 
-  const duration = STEP_TIME * 0.65;
+  const duration = stepTime * 0.65;
   gain.gain.setValueAtTime(0.18, time);
   gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
 
@@ -327,7 +329,7 @@ function scheduler() {
 
   while (nextStepTime < ctx.currentTime + SCHEDULE_AHEAD_SEC) {
     scheduleStep(ctx, currentStep, nextStepTime);
-    nextStepTime += STEP_TIME;
+    nextStepTime += stepTime;
     currentStep = (currentStep + 1) % TOTAL_STEPS;
   }
 }
@@ -338,12 +340,19 @@ export function startMusic() {
   isPlaying = true;
   currentStep = 0;
   nextStepTime = ctx.currentTime + 0.05;
+  stepTime = BASE_STEP_TIME;
 
   const gain = getMusicGain(ctx);
   gain.gain.cancelScheduledValues(ctx.currentTime);
   gain.gain.setValueAtTime(isMuted ? 0 : 0.22, ctx.currentTime);
 
   schedulerTimer = setInterval(scheduler, LOOKAHEAD_MS);
+}
+
+// Shortens the 16th-note step time so the beat speeds up in step with the
+// game's difficulty ramp (see MILESTONE_SPEED_FACTOR in game.js).
+export function increaseMusicTempo(factor) {
+  stepTime /= factor;
 }
 
 export function stopMusic() {
