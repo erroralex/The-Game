@@ -1,3 +1,5 @@
+import { OBSTACLE_BREAK_FADE_DURATION } from "./entities.js";
+
 const CODE_COLORS = ["#569cd6", "#c586c0", "#9cdcfe", "#ce9178", "#4ec9b0", "#dcdcaa", "#6a9955", "#d4d4d4"];
 const GUTTER_WIDTH = 34;
 const LINE_HEIGHT = 16;
@@ -65,11 +67,11 @@ function seededRandom(seed) {
   return () => (s = (s * 16807) % 2147483647) / 2147483647;
 }
 
-function drawStackSegment(ctx, rand, x, y, w, h) {
-  ctx.fillStyle = "rgba(80, 20, 20, 0.92)";
+function drawStackSegment(ctx, rand, x, y, w, h, broken) {
+  ctx.fillStyle = broken ? "rgba(22, 70, 28, 0.92)" : "rgba(80, 20, 20, 0.92)";
   ctx.fillRect(x, y, w, h);
 
-  ctx.fillStyle = "#e06c75";
+  ctx.fillStyle = broken ? "#6bbf3a" : "#e06c75";
   ctx.fillRect(x, y, 4, h);
 
   const lineHeight = 15;
@@ -77,17 +79,17 @@ function drawStackSegment(ctx, rand, x, y, w, h) {
   for (let i = 0; i < rows; i++) {
     const rowY = y + i * lineHeight + 4;
     const lineWidth = 10 + rand() * Math.max(1, w - 24);
-    ctx.fillStyle = "rgba(224, 108, 117, 0.55)";
+    ctx.fillStyle = broken ? "rgba(107, 191, 58, 0.55)" : "rgba(224, 108, 117, 0.55)";
     ctx.fillRect(x + 10, rowY, lineWidth, 5);
   }
 
-  ctx.strokeStyle = "#ff8a80";
+  ctx.strokeStyle = broken ? "#8de06c" : "#ff8a80";
   ctx.lineWidth = 2;
   ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
 }
 
-function drawHazardEdge(ctx, x, w, edgeY) {
-  ctx.strokeStyle = "#ff5252";
+function drawHazardEdge(ctx, x, w, edgeY, broken) {
+  ctx.strokeStyle = broken ? "#6bbf3a" : "#ff5252";
   ctx.lineWidth = 2;
   const amplitude = 3;
   const step = 6;
@@ -112,11 +114,18 @@ export function drawObstacle(ctx, o, height, groundHeight) {
   const rand = seededRandom(o.seed);
   const bottomHeight = height - groundHeight - (o.gapY + o.gapHeight);
 
-  drawStackSegment(ctx, rand, o.x, 0, o.width, o.gapY);
-  drawStackSegment(ctx, rand, o.x, o.gapY + o.gapHeight, o.width, bottomHeight);
+  ctx.save();
+  if (o.broken) {
+    ctx.globalAlpha = o.breakTimer / OBSTACLE_BREAK_FADE_DURATION;
+  }
 
-  drawHazardEdge(ctx, o.x, o.width, o.gapY);
-  drawHazardEdge(ctx, o.x, o.width, o.gapY + o.gapHeight);
+  drawStackSegment(ctx, rand, o.x, 0, o.width, o.gapY, o.broken);
+  drawStackSegment(ctx, rand, o.x, o.gapY + o.gapHeight, o.width, bottomHeight, o.broken);
+
+  drawHazardEdge(ctx, o.x, o.width, o.gapY, o.broken);
+  drawHazardEdge(ctx, o.x, o.width, o.gapY + o.gapHeight, o.broken);
+
+  ctx.restore();
 }
 
 export function drawBug(ctx, b) {
@@ -147,9 +156,21 @@ export function drawDuke(ctx, duke, animTime) {
 
   ctx.save();
   ctx.translate(duke.x, duke.y);
+
+  if (duke.shielded) {
+    const auraRadius = 27;
+    const gradient = ctx.createRadialGradient(0, 0, 6, 0, 0, auraRadius);
+    gradient.addColorStop(0, "rgba(255, 224, 102, 0.6)");
+    gradient.addColorStop(1, "rgba(255, 224, 102, 0)");
+    ctx.beginPath();
+    ctx.arc(0, 0, auraRadius, 0, Math.PI * 2);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+  }
+
   ctx.rotate(duke.rotation);
 
-  if (duke.invincible) {
+  if (duke.shielded) {
     ctx.shadowColor = "#ffe066";
     ctx.shadowBlur = 18;
   }
@@ -228,9 +249,37 @@ export function drawDuke(ctx, duke, animTime) {
   ctx.restore();
 }
 
-export function drawHud(ctx, width, scoreLabel) {
+function drawShieldIcon(ctx, cx, cy, size, filled) {
+  ctx.beginPath();
+  ctx.moveTo(cx - size * 0.7, cy - size * 0.75);
+  ctx.lineTo(cx + size * 0.7, cy - size * 0.75);
+  ctx.quadraticCurveTo(cx + size * 0.8, cy + size * 0.25, cx, cy + size);
+  ctx.quadraticCurveTo(cx - size * 0.8, cy + size * 0.25, cx - size * 0.7, cy - size * 0.75);
+  ctx.closePath();
+
+  if (filled) {
+    ctx.fillStyle = "#4fc3f7";
+    ctx.fill();
+    ctx.strokeStyle = "#e1f5fe";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = "rgba(253, 253, 253, 0.3)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+
+export function drawHud(ctx, width, scoreLabel, shieldCharges, maxShieldCharges) {
   ctx.fillStyle = "#fdfdfd";
   ctx.font = "bold 28px 'Segoe UI', sans-serif";
   ctx.textAlign = "center";
   ctx.fillText(scoreLabel, width / 2, 46);
+
+  const iconSize = 8;
+  const spacing = 22;
+  const startX = width / 2 - ((maxShieldCharges - 1) * spacing) / 2;
+  for (let i = 0; i < maxShieldCharges; i++) {
+    drawShieldIcon(ctx, startX + i * spacing, 66, iconSize, i < shieldCharges);
+  }
 }

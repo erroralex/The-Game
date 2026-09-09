@@ -30,9 +30,14 @@ export function playFlap() {
   playTone(520, 0.09, { type: "square", peak: 0.15 });
 }
 
-export function playDash() {
+export function playShieldActivate() {
   playTone(880, 0.05, { type: "square", peak: 0.2 });
   playTone(1320, 0.08, { type: "square", peak: 0.15, delay: 0.05 });
+}
+
+export function playShieldBreak() {
+  playTone(700, 0.05, { type: "sawtooth", peak: 0.2 });
+  playTone(440, 0.12, { type: "triangle", peak: 0.22, delay: 0.04 });
 }
 
 export function playCollect() {

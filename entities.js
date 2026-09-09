@@ -2,11 +2,8 @@ export const GRAVITY = 1500;
 export const FLAP_VELOCITY = -400;
 export const MAX_FALL_SPEED = 650;
 
-export const DASH_LUNGE = 110;
-export const DASH_INVINCIBLE_TIME = 0.35;
-export const DASH_SPRING = 7;
-export const DASH_MAX_CHARGES = 3;
-export const DASH_RECHARGE_INTERVAL = 4;
+export const SHIELD_DURATION = 0.35; // brief invulnerability window per activation
+export const SHIELD_MAX_CHARGES = 3; // fixed for the whole run; does not recharge
 
 export class Duke {
   constructor(baseX, y) {
@@ -16,27 +13,22 @@ export class Duke {
     this.vy = 0;
     this.radius = 16;
     this.rotation = 0;
-    this.dashCharges = DASH_MAX_CHARGES;
-    this.dashTimer = 0;
-    this.rechargeTimer = 0;
+    this.shieldCharges = SHIELD_MAX_CHARGES;
+    this.shieldTimer = 0;
   }
 
-  get invincible() {
-    return this.dashTimer > 0;
+  get shielded() {
+    return this.shieldTimer > 0;
   }
 
   flap() {
     this.vy = FLAP_VELOCITY;
   }
 
-  dash(target = null) {
-    if (this.dashCharges <= 0) return false;
-    this.dashCharges -= 1;
-    this.x = this.baseX + DASH_LUNGE;
-    this.dashTimer = DASH_INVINCIBLE_TIME;
-    if (target) {
-      this.vy = (target.y - this.y) / DASH_INVINCIBLE_TIME;
-    }
+  activateShield() {
+    if (this.shieldCharges <= 0) return false;
+    this.shieldCharges -= 1;
+    this.shieldTimer = SHIELD_DURATION;
     return true;
   }
 
@@ -45,18 +37,8 @@ export class Duke {
     this.y += this.vy * dt;
     this.rotation = Math.max(-0.5, Math.min(0.9, this.vy / 500));
 
-    this.x += (this.baseX - this.x) * DASH_SPRING * dt;
-
-    if (this.dashTimer > 0) {
-      this.dashTimer = Math.max(0, this.dashTimer - dt);
-    }
-
-    if (this.dashCharges < DASH_MAX_CHARGES) {
-      this.rechargeTimer += dt;
-      if (this.rechargeTimer >= DASH_RECHARGE_INTERVAL) {
-        this.rechargeTimer = 0;
-        this.dashCharges += 1;
-      }
+    if (this.shieldTimer > 0) {
+      this.shieldTimer = Math.max(0, this.shieldTimer - dt);
     }
   }
 
@@ -75,6 +57,8 @@ export class Duke {
   }
 }
 
+export const OBSTACLE_BREAK_FADE_DURATION = 0.4;
+
 export class Obstacle {
   constructor(x, width, gapY, gapHeight, speed, canvasHeight, options = {}) {
     const { oscillate = false, amplitude = 0, angularSpeed = 0 } = options;
@@ -85,6 +69,8 @@ export class Obstacle {
     this.speed = speed;
     this.canvasHeight = canvasHeight;
     this.scored = false;
+    this.broken = false;
+    this.breakTimer = 0;
 
     // Fixed at spawn so the rendered stack-panel pattern (seeded from gapY)
     // doesn't flicker as an oscillating obstacle's gapY changes each frame.
@@ -109,14 +95,26 @@ export class Obstacle {
       this.oscillateTime += dt;
       this.gapY = this.baseGapY + Math.sin(this.oscillateTime * this.angularSpeed + this.phase) * this.amplitude;
     }
+    if (this.broken) {
+      this.breakTimer = Math.max(0, this.breakTimer - dt);
+    }
   }
 
   get offscreen() {
     return this.x + this.width < 0;
   }
 
+  get faded() {
+    return this.broken && this.breakTimer <= 0;
+  }
+
+  break() {
+    this.broken = true;
+    this.breakTimer = OBSTACLE_BREAK_FADE_DURATION;
+  }
+
   collidesWith(duke) {
-    if (duke.invincible) return false;
+    if (this.broken) return false;
     const topRect = { x: this.x, y: 0, w: this.width, h: this.gapY };
     const bottomRect = {
       x: this.x,

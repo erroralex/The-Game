@@ -1,6 +1,6 @@
-import { Duke, Obstacle, Bug } from "./entities.js";
+import { Duke, Obstacle, Bug, SHIELD_MAX_CHARGES } from "./entities.js";
 import { createCodeLines, drawBackground, drawObstacle, drawBug, drawDuke, drawHud } from "./render.js";
-import { playFlap, playDash, playCollect, playHit, playGameOver, playMilestone } from "./sound.js";
+import { playFlap, playShieldActivate, playShieldBreak, playCollect, playHit, playGameOver, playMilestone } from "./sound.js";
 import { startMusic, stopMusic, toggleMusicMute, isMusicMuted, increaseMusicTempo } from "./music.js";
 import { drawNarrator } from "./narrator.js";
 
@@ -182,19 +182,6 @@ function spawnBug() {
   bugs.push(new Bug(spawnX, y, currentBugSpeed));
 }
 
-function findNearestBug() {
-  let nearest = null;
-  let nearestDist = Infinity;
-  for (const bug of bugs) {
-    const dist = Math.hypot(bug.x - duke.x, bug.y - duke.y);
-    if (dist < nearestDist) {
-      nearestDist = dist;
-      nearest = bug;
-    }
-  }
-  return nearest;
-}
-
 function loadHighScore() {
   try {
     const stored = Number(localStorage.getItem(HIGH_SCORE_KEY));
@@ -247,11 +234,10 @@ function handleFlap() {
   }
 }
 
-function handleDash() {
+function handleShield() {
   if (state === "playing") {
-    const target = findNearestBug();
-    if (duke.dash(target)) {
-      playDash();
+    if (duke.activateShield()) {
+      playShieldActivate();
     }
   }
 }
@@ -270,7 +256,7 @@ window.addEventListener("keydown", (e) => {
     handleFlap();
   } else if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
     e.preventDefault();
-    handleDash();
+    handleShield();
   } else if (e.code === "KeyM") {
     e.preventDefault();
     toggleMusicMute();
@@ -283,7 +269,7 @@ muteButton.addEventListener("click", () => {
   updateMuteButton();
 });
 
-const TOUCH_FLAP_DELAY = 60; // ms grace period for a second finger to land and turn a tap into a dash
+const TOUCH_FLAP_DELAY = 60; // ms grace period for a second finger to land and turn a tap into a shield activation
 const activeTouches = new Set();
 let touchFlapTimer = null;
 
@@ -293,7 +279,7 @@ canvas.addEventListener("pointerdown", (e) => {
     if (activeTouches.size >= 2) {
       clearTimeout(touchFlapTimer);
       touchFlapTimer = null;
-      handleDash();
+      handleShield();
     } else {
       touchFlapTimer = setTimeout(() => {
         touchFlapTimer = null;
@@ -303,7 +289,7 @@ canvas.addEventListener("pointerdown", (e) => {
     return;
   }
   if (e.button === 2) {
-    handleDash();
+    handleShield();
   } else {
     handleFlap();
   }
@@ -319,7 +305,7 @@ canvas.addEventListener("pointercancel", (e) => {
 
 canvas.addEventListener("contextmenu", (e) => {
   e.preventDefault();
-  handleDash();
+  handleShield();
 });
 
 startButton.addEventListener("click", () => {
@@ -349,15 +335,21 @@ function update(dt) {
   for (const obstacle of obstacles) {
     obstacle.update(dt);
     if (obstacle.collidesWith(duke)) {
-      endGame();
-      return;
+      if (duke.shielded) {
+        obstacle.break();
+        duke.shieldTimer = 0; // shield can safely break one obstacle, then it's spent
+        playShieldBreak();
+      } else {
+        endGame();
+        return;
+      }
     }
     if (!obstacle.scored && obstacle.x + obstacle.width < duke.x) {
       obstacle.scored = true;
       addScore(OBSTACLE_PASS_SCORE);
     }
   }
-  obstacles = obstacles.filter((o) => !o.offscreen);
+  obstacles = obstacles.filter((o) => !o.offscreen && !o.faded);
 
   for (const bug of bugs) {
     bug.update(dt);
@@ -374,7 +366,7 @@ function draw() {
   for (const o of obstacles) drawObstacle(ctx, o, HEIGHT, GROUND_HEIGHT);
   for (const b of bugs) drawBug(ctx, b);
   if (state !== "start") drawDuke(ctx, duke, animTime);
-  if (state === "playing") drawHud(ctx, WIDTH, formatScore(score));
+  if (state === "playing") drawHud(ctx, WIDTH, formatScore(score), duke.shieldCharges, SHIELD_MAX_CHARGES);
   if (state !== "playing") drawNarrator(narratorCtx, narratorCanvas.width, narratorCanvas.height);
 }
 

@@ -238,21 +238,63 @@ HTML5 Canvas + vanilla JS, no build step, no backend.
     game-over message's wording also changed from "Score: X bug(s)" to
     "Score: X points", since the score no longer only represents bugs
     collected.
+- **Confirmed working:** the project owner verified the music-restart-after-
+  Retry fix (see Bug Fixes above) - it was a GitHub Pages CDN cache lag at
+  the time of the earlier report, not a real second bug.
+
+## Shield Mechanic (replaces Dash)
+- Replaced the dash entirely with a shield, on the same inputs (Shift,
+  right-click, two-finger tap on touch).
+- **`entities.js`:** `Duke` lost the lunge/homing/spring-return/
+  recharge-over-time dash fields and gained `activateShield()`: 3 fixed
+  charges (`SHIELD_MAX_CHARGES`), consumed on activation and **never
+  recharge** for the rest of the run, each granting `SHIELD_DURATION`
+  (0.35s) of invulnerability. `Obstacle.collidesWith` no longer
+  auto-ignores an invincible Duke (that early-out is gone); it now always
+  reports plain geometric overlap, so `game.js` can decide what a
+  collision means. Added `Obstacle.break()` / `broken` / `breakTimer` /
+  `faded` for a fade-out state (0.4s, `OBSTACLE_BREAK_FADE_DURATION`)
+  instead of instant removal.
+- **`game.js`:** on an obstacle collision, if `duke.shielded`, the
+  obstacle breaks (`obstacle.break()`) and the shield is spent
+  immediately (`duke.shieldTimer = 0`) - "can break 1 obstacle safely"
+  is enforced by ending the shield the instant it's used for a break,
+  not by a separate counter. Otherwise it's game over as before.
+  `handleDash`/`findNearestBug` (dead once homing was removed) became
+  `handleShield`; a leftover `handleDash()` call in the `contextmenu`
+  handler (missed by an earlier bulk rename, would have thrown on
+  right-click) was caught and fixed during this pass.
+- **`render.js`:** broken obstacles fade out over 0.4s while shifting
+  palette red -> green (`drawStackSegment`/`drawHazardEdge` take a
+  `broken` flag). A shielded Duke gets a golden radial-gradient aura plus
+  a glow (reused the glow that used to be dash-only). HUD charge dots are
+  back (per the project owner's request to restore them) but redrawn as
+  small shield-icon glyphs in blue (`#4fc3f7`) instead of the old gold
+  circles - those had been removed earlier in this project for looking
+  like "three golden coins"; blue shield icons avoid repeating that.
+- **`sound.js`:** `playDash` -> `playShieldActivate`; added
+  `playShieldBreak` for destroying an obstacle.
+- **`index.html`:** hint text and narrator flavor text updated from
+  "dash" to "shield".
+- Not yet manually playtested (claude-in-chrome still won't connect this
+  session) - the break/fade timing, aura look, and touch shield trigger
+  are implemented but unverified in an actual browser.
 
 ## Next Steps
-- **Verify the music-restart fix** (see Bug Fixes above) with a fresh
-  manual check; not yet confirmed working after the project owner's report
-  that it was still silent post-fix.
+- **Playtest the shield mechanic**: break/fade timing and feel (0.35s
+  invuln, 0.4s fade), the golden aura, HUD shield icons, and the
+  touch/right-click/keyboard triggers - none of this has been visually
+  verified yet.
 - Reconnect claude-in-chrome (or do a manual pass) to verify the narrator
-  bubble/tail positioning and the two-finger dash gesture on an actual
-  touch device; current values are untested beyond the desktop screenshots
-  the project owner shared.
-- Manual playtest with audio unmuted to verify music volume balance against
-  SFX during gameplay, and to feel out the new oscillating obstacles and
-  the every-10-points speed ramp (numbers are a first guess, untested by
-  a human hand).
-- Confirm overall difficulty feel now that obstacle spacing, bug placement,
-  dash reach, oscillation, and the speed ramp have all changed (gravity,
-  flap strength, gap/speed, spawn intervals).
+  bubble/tail positioning and the two-finger touch gesture (shield, not
+  dash, now) on an actual touch device; current values are untested
+  beyond the desktop screenshots the project owner shared.
+- Manual playtest with audio unmuted to verify music volume balance
+  against SFX during gameplay, and to feel out the oscillating obstacles,
+  the every-10-points speed/tempo ramp, and the new shield-only-3-charges
+  balance (no more dash spam since there's no recharge).
+- Confirm overall difficulty feel now that obstacle spacing, bug
+  placement, oscillation, the speed ramp, and the dash-to-shield swap
+  have all changed (gravity, flap strength, gap/speed, spawn intervals).
 - No automated tests exist yet (manual/browser verification only, per the
   Project header); add some if the game grows past a single demo session.
